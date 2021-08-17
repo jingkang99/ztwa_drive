@@ -1,0 +1,82 @@
+version: '2.0'
+services:
+  db:
+    image: mariadb:latest
+    container_name: seafile-mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=Dev00p         # Requested, set the root's password of MySQL service.
+      - MYSQL_LOG_CONSOLE=true
+    ports:
+      - 3306:3306
+    volumes:
+      - /opt/mysql:/var/lib/mysql          # Requested, specifies the path to MySQL data persistent store.
+    networks:
+      pegasea-net:
+        ipv4_address: 172.25.25.11 
+
+  memcached:
+    image: memcached:1.5.6
+    container_name: seafile-memcached
+    entrypoint: memcached -m 256
+    networks:
+      pegasea-net:
+        ipv4_address: 172.25.25.12 
+          
+  seafile:
+    image: seafileltd/seafile-mc:latest
+    container_name: seafile
+    ports:
+      - "80:80"
+#     - "443:443"                               # If https is enabled, cancel the comment.
+    volumes:
+      - /opt/pegasea:/shared                    # Requested, specifies the path to Seafile data persistent store.
+    environment:
+      - DB_HOST=db
+      - DB_ROOT_PASSWD=Dev00p                   # Requested, the value shuold be root's password of MySQL service.
+      - TIME_ZONE=Asia/Shanghai                 # Optional, default is UTC. Should be uncomment and set to your local time zone.
+      - SEAFILE_ADMIN_EMAIL=kadmin@lt.net       # Specifies Seafile admin user, default is 'me@example.com'.
+      - SEAFILE_ADMIN_PASSWORD=Dev00p           # Specifies Seafile admin password, default is 'asecret'.
+      - SEAFILE_SERVER_LETSENCRYPT=false        # Whether use letsencrypt to generate cert.
+      - SEAFILE_SERVER_HOSTNAME=pegasea.lt.net  # Specifies your host name.
+    depends_on:
+      - db
+      - memcached
+    networks:
+      pegasea-net:
+        ipv4_address: 172.25.25.13 
+
+##################
+#
+#   ONLYOFFICE
+#
+  onlyoffice-document-server:
+    container_name: onlyoffice-document-server
+    image: onlyoffice/documentserver:latest
+    restart: always
+    #environment:
+    #  - JWT_ENABLED=true
+    #  - JWT_SECRET=Dev11p
+    #  - JWT_HEADER=AuthorizationJwt
+    ports:
+      - "81:80"
+      - "5432:5432"
+    volumes:
+       - /opt/onlyoffice/docu_server/data:/var/www/onlyoffice/Data
+       - /opt/onlyoffice/docu_server/logs:/var/log/onlyoffice
+       - /opt/onlyoffice/docu_server/font:/usr/share/fonts/truetype/custom
+       - /opt/onlyoffice/docu_server/libs:/var/lib/onlyoffice
+       - /opt/onlyoffice/docu_server/pgdb:/var/lib/postgresql
+       - /opt/onlyoffice/docu_server/etco:/etc/onlyoffice
+    depends_on:
+      - db
+      - seafile
+    networks:
+      pegasea-net:
+        ipv4_address: 172.25.25.14
+
+networks:
+    pegasea-net:
+        ipam:
+            config:
+                - subnet: 172.25.25.0/24
+                  gateway: 172.25.25.1
